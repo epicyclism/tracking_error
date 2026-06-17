@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 
 #include "hello_imgui/hello_imgui.h"
 #include "hello_imgui/icons_font_awesome_4.h"
@@ -7,6 +8,13 @@
 
 constexpr double inner_min  = 44.0;
 constexpr double outer_max = 150.0;
+constexpr double scan_increment = 0.1;
+
+double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
+{
+    auto e = std::sqrt(pivot_spindle * pivot_spindle - radius * radius) - pivot_stylus;
+    return 360.0 * (90.0 - std::acos(e / radius)) /  M_2_PI;
+}
 
 struct geometry_t
 {
@@ -17,9 +25,9 @@ struct geometry_t
     double max_radius_;
 	void recompute()
 	{
-        tracking_error_.resize(size_t((outer_max - inner_min) * 10.0));
-        double i = -0.01;
-		std::ranges::generate(tracking_error_, [&]() { i += 0.01; return i; });
+        tracking_error_.resize(size_t((outer_max - inner_min) / scan_increment));
+        double rad = outer_max;
+		std::ranges::generate(tracking_error_, [&]() { auto e = compute_tracking_error(pivot_spindle_, pivot_stylus_, rad); rad -= scan_increment; return e + offset_; });
 	}
     std::vector<double> tracking_error_;
 };
