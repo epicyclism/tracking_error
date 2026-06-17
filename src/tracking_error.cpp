@@ -1,15 +1,27 @@
+#include <algorithm>
+
 #include "hello_imgui/hello_imgui.h"
 #include "hello_imgui/icons_font_awesome_4.h"
 
-#if 1
 #include "implot.h"
+
+constexpr double inner_min  = 44.0;
+constexpr double outer_max = 150.0;
 
 struct geometry_t
 {
     double pivot_spindle_;
     double pivot_stylus_;
+    double offset_;
     double min_radius_;
     double max_radius_;
+	void recompute()
+	{
+        tracking_error_.resize(size_t((outer_max - inner_min) * 10.0));
+        double i = -0.01;
+		std::ranges::generate(tracking_error_, [&]() { i += 0.01; return i; });
+	}
+    std::vector<double> tracking_error_;
 };
 
 void draw(geometry_t& g)
@@ -24,49 +36,73 @@ void draw(geometry_t& g)
 	ImGui::SetNextWindowPos(ImVec2(0.0F, 0.0F));
 	ImGui::SetNextWindowSize(ImVec2(0.0F, 0.0F));
 	ImGui::TextUnformatted("Parameters");
+    bool modded = false;
     double tmp = g.pivot_spindle_;
     if(ImGui::InputDouble("Pivot - Spindle", &tmp, 0.1, 0.5, "%.2f"))
     {
         g.pivot_spindle_ = tmp;
+		modded = true;
     }
     tmp = g.pivot_stylus_;
     if(ImGui::InputDouble("Pivot - Stylus", &tmp, 0.1, 0.5, "%.2f"))
     {
         g.pivot_stylus_ = tmp;
+		modded = true;
+    }
+	tmp = g.offset_;
+    if (ImGui::InputDouble("Headshell offset", &tmp, -30.0, 30.0, "%.2f"))
+    {
+        g.offset_ = tmp;
+		modded = true;
     }
     tmp = g.min_radius_;
     if(ImGui::InputDouble("Min radius", &tmp, 0.1, 0.5, "%.2f"))
     {
         g.min_radius_ = tmp;
+		modded = true;
     }
     tmp = g.max_radius_;
     if(ImGui::InputDouble("Max radius", &tmp, 0.1, 0.5, "%.2f"))
     {
         g.max_radius_ = tmp;
+		modded = true;
     }
-    ImGui::Separator();  
+    if (modded)
+    {
+        g.recompute();
+    }
+    ImGui::Separator();
 	ImGui::TextUnformatted("Graph");
+    if (ImPlot::BeginPlot("Tracking Error"))
+    {
+		ImPlot::PlotLine("Tracking Error", g.tracking_error_.data(), static_cast<int>(g.tracking_error_.size()), 0.01);
+        ImPlot::EndPlot();
+    }
     ImGui::End();
 }
 
 int main()
 {
-    geometry_t g{211.0, 223.0, 80.0, 120.0};
-    auto showGui = [&]() {draw(g);};
-    HelloImGui::Run(showGui, "Implot Demo", true);
+    geometry_t g{222.0, 237.0, 22.0, 48.0, 145.0};
+    g.recompute();
 
+    HelloImGui::RunnerParams runnerParams;
+    runnerParams.appWindowParams.windowTitle = "Tracking Error Evaluator";
+        runnerParams.callbacks.ShowGui = [&]() {
+        draw(g);
+        };
+    runnerParams.imGuiWindowParams.showMenuBar = false;
+        // Status bar:
+    runnerParams.imGuiWindowParams.showStatusBar = false;
+    runnerParams.imGuiWindowParams.showStatus_Fps = false;
+    runnerParams.imGuiWindowParams.defaultImGuiWindowType =
+        HelloImGui::DefaultImGuiWindowType::ProvideFullScreenWindow;
+    runnerParams.callbacks.PostInit = [] { ImPlot::CreateContext(); };
+	runnerParams.callbacks.BeforeExit = [] { ImPlot::DestroyContext(); };
+    //runnerParams.callbacks.SetupImGuiStyle = [&cfg_cache]() {ImGuiTheme::ApplyTheme(ImGuiTheme::ImGuiTheme_(cfg_cache.theme_)); };
+    // ini
+    runnerParams.iniFolderType = HelloImGui::IniFolderType::AppUserConfigFolder;
+
+    HelloImGui::Run(runnerParams);
     return 0;
 }
-
-#else
-int main(int, char *[]) {
-    int nb_cpp = 10, nb_cmake = 2;
-    auto showGui = [&]() {
-        ImGui::TextWrapped("How many lines for this app that works on computers and mobile devices?");
-        ImGui::SliderInt(ICON_FA_FILE_CODE " C++ lines", &nb_cpp, 0, 100);
-        ImGui::InputInt( ICON_FA_FILE_CODE " Cmake lines", &nb_cmake);
-    };
-    HelloImGui::Run(showGui, "Hello, Dear ImGui!", true);
-    return 0;
-}
-#endif
