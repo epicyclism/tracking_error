@@ -50,7 +50,7 @@ void draw(geometry_t& g)
 		modded = true;
     }
 	tmp = g.offset_;
-    if (ImGui::InputDouble("Headshell offset", &tmp, -30.0, 30.0, "%.2f"))
+    if (ImGui::InputDouble("Headshell offset", &tmp, 0.1, 30.0, "%.2f"))
     {
         g.offset_ = tmp;
 		modded = true;
