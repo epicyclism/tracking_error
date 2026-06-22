@@ -14,6 +14,31 @@ constexpr double outer_max = 150.0;
 constexpr double scan_increment = 0.01;
 std::vector<double> x_axis;
 
+// assumes values cross 0, good assumption for this application.
+//
+template<typename I> I find_next_opposite_sign(I b, I e)
+{
+    if(*b < 0)
+    {
+        while(b != e)
+        {
+            if( *b > 0)
+                break;
+            ++b;
+        }
+    }
+    else
+    {
+        while(b != e)
+        {
+            if( *b < 0)
+                break;
+            ++b;
+        }
+    }
+    return b;
+}
+
 inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
 {
     auto d = pivot_stylus - std::sqrt(pivot_spindle * pivot_spindle - radius * radius);
@@ -38,6 +63,7 @@ struct geometry_data_t
     std::vector<double> tracking_error_;
     std::vector<double> tracking_distortion_;
     std::vector<double> skating_force_;
+    std::vector<size_t> zeroes_;
 };
 
 void recompute(geometry_t const& g, geometry_data_t& data)
@@ -45,6 +71,9 @@ void recompute(geometry_t const& g, geometry_data_t& data)
     data.tracking_error_.resize(size_t((outer_max - inner_min) / scan_increment));
     double rad = inner_min;
 	std::ranges::generate(data.tracking_error_, [&]() { auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad); rad += scan_increment; return e - g.offset_; });
+    data.zeroes_.clear();
+    for(auto v = data.tracking_error_.begin(); v != data.tracking_error_.end(); v = find_next_opposite_sign(v, data.tracking_error_.end()))
+        data.zeroes_.emplace_back(inner_min + std::distance(data.tracking_error_.begin(), v) * 0.01);
 }
 
 void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geometry_data_t, 6>& data)
@@ -90,6 +119,12 @@ void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geom
         ImPlot::SetupAxes("radius (mm)","error (deg)");
 		ImPlot::PlotLine("Tracking Error", x_axis.data(), data[current_geometry].tracking_error_.data(), static_cast<int>(data[current_geometry].tracking_error_.size()));
         ImPlot::EndPlot();
+    }
+    ImGui::TextUnformatted("Zeroes at ");
+    for(auto z : data[current_geometry].zeroes_)
+    {
+        ImGui::SameLine();
+        ImGui::Text("%g ", z);
     }
     ImGui::End();
 }
