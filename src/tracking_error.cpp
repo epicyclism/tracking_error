@@ -9,9 +9,10 @@
 
 #include "implot.h"
 
-constexpr double inner_min  = 44.0;
+constexpr double inner_min  = 54.0;
 constexpr double outer_max = 150.0;
-constexpr double scan_increment = 0.1;
+constexpr double scan_increment = 0.01;
+std::vector<double> x_axis;
 
 inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
 {
@@ -25,15 +26,12 @@ struct geometry_t
     double pivot_spindle_;
     double pivot_stylus_;
     double offset_;
-    double min_radius_;
-    double max_radius_;
 };
 
-constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0, 48.0, 145.0 };
-constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0, 48.0, 145.0 };
-constexpr geometry_t SME { "SME", 232.32, 215.35, 23.204, 48.0, 145.0 };
-constexpr geometry_t Custom{ "Custom", 231.2, 213.25, 23.84, 48.0, 145.0 };
-constexpr size_t custom_geometry = 3;
+constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0 };
+constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0 };
+constexpr geometry_t SME { "SME", 232.32, 215.35, 23.204 };
+constexpr geometry_t SME12 { "SME12", 308.19, 295.60, 17.278 };
 
 struct geometry_data_t
 {
@@ -45,11 +43,11 @@ struct geometry_data_t
 void recompute(geometry_t const& g, geometry_data_t& data)
 {
     data.tracking_error_.resize(size_t((outer_max - inner_min) / scan_increment));
-    double rad = outer_max;
-	std::ranges::generate(data.tracking_error_, [&]() { auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad); rad -= scan_increment; return e - g.offset_; });
+    double rad = inner_min;
+	std::ranges::generate(data.tracking_error_, [&]() { auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad); rad += scan_increment; return e - g.offset_; });
 }
 
-void draw(std::array<geometry_t, 4>& g, size_t current_geometry, geometry_data_t& data)
+void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geometry_data_t, 6>& data)
 {
 	auto [ww, wh] = ImGui::GetWindowSize();
 	auto ww3 = ww / 3;
@@ -67,61 +65,30 @@ void draw(std::array<geometry_t, 4>& g, size_t current_geometry, geometry_data_t
     if(ImGui::InputDouble("Pivot - Spindle", &tmp, 0.1, 0.5, "%.2f"))
     {
         g[current_geometry].pivot_spindle_ = tmp;
-		modded = true;
+        modded = true;
     }
     tmp = g[current_geometry].pivot_stylus_;
     if(ImGui::InputDouble("Pivot - Stylus", &tmp, 0.1, 0.5, "%.2f"))
     {
-        if(current_geometry != custom_geometry)
-        {
-            g[custom_geometry] = g[current_geometry];
-            current_geometry = custom_geometry;
-        }
         g[current_geometry].pivot_stylus_ = tmp;
-		modded = true;
+        modded = true;
     }
 	tmp = g[current_geometry].offset_;
     if (ImGui::InputDouble("Headshell offset", &tmp, 0.1, 30.0, "%.2f"))
     {
-        if (current_geometry != custom_geometry)
-        {
-            g[custom_geometry] = g[current_geometry];
-            current_geometry = custom_geometry;
-        }
-        g[custom_geometry].offset_ = tmp;
-		modded = true;
-    }
-    tmp = g[current_geometry].min_radius_;
-    if(ImGui::InputDouble("Min radius", &tmp, 0.1, 0.5, "%.2f"))
-    {
-        if (current_geometry != custom_geometry)
-        {
-            g[custom_geometry] = g[current_geometry];
-            current_geometry = custom_geometry;
-        }
-        g[custom_geometry].min_radius_ = tmp;
-		modded = true;
-    }
-    tmp = g[current_geometry].max_radius_;
-    if(ImGui::InputDouble("Max radius", &tmp, 0.1, 0.5, "%.2f"))
-    {
-        if (current_geometry != custom_geometry)
-        {
-            g[custom_geometry] = g[current_geometry];
-            current_geometry = custom_geometry;
-        }
-        g[custom_geometry].max_radius_ = tmp;
-		modded = true;
+        g[current_geometry].offset_ = tmp;
+        modded = true;
     }
     if (modded)
     {
-        recompute(g[current_geometry], data);
+        recompute(g[current_geometry], data[current_geometry]);
     }
     ImGui::Separator();
-	ImGui::TextUnformatted("Graph");
-    if (ImPlot::BeginPlot("Tracking Error"))
+	ImGui::TextUnformatted("Graphs");
+    if (ImPlot::BeginPlot("Tracking"))
     {
-		ImPlot::PlotLine("Tracking Error", data.tracking_error_.data(), static_cast<int>(data.tracking_error_.size()), 0.01);
+        ImPlot::SetupAxes("radius (mm)","error (deg)");
+		ImPlot::PlotLine("Tracking Error", x_axis.data(), data[current_geometry].tracking_error_.data(), static_cast<int>(data[current_geometry].tracking_error_.size()));
         ImPlot::EndPlot();
     }
     ImGui::End();
@@ -129,16 +96,19 @@ void draw(std::array<geometry_t, 4>& g, size_t current_geometry, geometry_data_t
 
 int main()
 {
-	std::array<geometry_t, 4> geometries{ rega, linn, SME, Custom };
-	size_t current_geometry = 0;
+	std::array<geometry_t, 6> geometries{ rega, linn, rega, linn, SME, SME12};
+	std::array<geometry_data_t, 6> geometries_data;
+	size_t current_geometry = 1;
 
-	geometry_data_t data;
-    recompute(geometries[current_geometry], data);
-
+    for(size_t i = 0; i < 6; ++i)
+        recompute(geometries[i], geometries_data[i]);
+    x_axis.resize(geometries_data[0].tracking_error_.size());
+    auto x = inner_min;
+    std::ranges::generate(x_axis, [&](){ auto xr = x; x += scan_increment; return xr;});    
     HelloImGui::RunnerParams runnerParams;
     runnerParams.appWindowParams.windowTitle = "Tracking Error Evaluator";
         runnerParams.callbacks.ShowGui = [&]() {
-        draw(geometries, current_geometry, data);
+        draw(geometries, current_geometry, geometries_data);
         };
     runnerParams.imGuiWindowParams.showMenuBar = false;
         // Status bar:
