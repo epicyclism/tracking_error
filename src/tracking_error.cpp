@@ -39,10 +39,23 @@ template<typename I> I find_next_opposite_sign(I b, I e)
     return b;
 }
 
-inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
+inline double compute_tracking_error0(double pivot_spindle, double pivot_stylus, double radius)
 {
     auto d = pivot_stylus - std::sqrt(pivot_spindle * pivot_spindle - radius * radius);
     return 360.0 * std::atan(d / radius) / (2.0 * std::numbers::pi);
+}
+
+inline double compute_tracking_error1(double pivot_spindle, double pivot_stylus, double radius)
+{
+    auto d = std::sqrt(radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus);
+    return 360.0 * std::asin(d / radius) / (2.0 * std::numbers::pi);
+}
+
+inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
+{
+    auto d = radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus;
+    d /= (2.0 * pivot_stylus);
+    return 360.0 * std::asin(d / radius) / (2.0 * std::numbers::pi);
 }
 
 struct geometry_t
@@ -63,7 +76,7 @@ struct geometry_data_t
     std::vector<double> tracking_error_;
     std::vector<double> tracking_distortion_;
     std::vector<double> skating_force_;
-    std::vector<size_t> zeroes_;
+    std::vector<double> zeroes_;
 };
 
 void recompute(geometry_t const& g, geometry_data_t& data)
@@ -72,8 +85,8 @@ void recompute(geometry_t const& g, geometry_data_t& data)
     double rad = inner_min;
 	std::ranges::generate(data.tracking_error_, [&]() { auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad); rad += scan_increment; return e - g.offset_; });
     data.zeroes_.clear();
-    for(auto v = data.tracking_error_.begin(); v != data.tracking_error_.end(); v = find_next_opposite_sign(v, data.tracking_error_.end()))
-        data.zeroes_.emplace_back(inner_min + std::distance(data.tracking_error_.begin(), v) * 0.01);
+    for(auto v = find_next_opposite_sign(data.tracking_error_.begin(), data.tracking_error_.end()); v != data.tracking_error_.end(); v = find_next_opposite_sign(v, data.tracking_error_.end()))
+        data.zeroes_.emplace_back(inner_min + double(std::distance(data.tracking_error_.begin(), v)) * 0.01);
 }
 
 void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geometry_data_t, 6>& data)
@@ -124,8 +137,9 @@ void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geom
     for(auto z : data[current_geometry].zeroes_)
     {
         ImGui::SameLine();
-        ImGui::Text("%g ", z);
+        ImGui::Text("%f ", z);
     }
+    ImGui::Text("first val %f, zero count %ld", data[current_geometry].tracking_error_[0], data[current_geometry].zeroes_.size());
     ImGui::End();
 }
 
