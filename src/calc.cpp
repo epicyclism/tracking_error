@@ -29,13 +29,16 @@ struct geometry_t
 
 constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0 };
 constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0 };
-constexpr geometry_t SME { "SME", 232.32, 215.35, 23.204 };
-constexpr geometry_t SME12 { "SME12", 308.19, 295.60, 17.278 };
+constexpr geometry_t SME { "SME", 215.35, 232.32, 23.204 };
+constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278 };
 
 int main()
 {
     std::array dd {57.2, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.4};
-    auto& g = rega;
+    auto& g = SME12;
     for(auto d: dd)
         fmt::println("{} at {}, error = {}", g.name_, d, compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, d) - g.offset_);
+    auto& g2 = SME;
+    for(auto d: dd)
+        fmt::println("{} at {}, error = {}", g2.name_, d, compute_tracking_error(g2.pivot_spindle_, g2.pivot_stylus_, d) - g2.offset_);
 }

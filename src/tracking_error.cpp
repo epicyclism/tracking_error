@@ -39,18 +39,6 @@ template<typename I> I find_next_opposite_sign(I b, I e)
     return b;
 }
 
-inline double compute_tracking_error0(double pivot_spindle, double pivot_stylus, double radius)
-{
-    auto d = pivot_stylus - std::sqrt(pivot_spindle * pivot_spindle - radius * radius);
-    return 360.0 * std::atan(d / radius) / (2.0 * std::numbers::pi);
-}
-
-inline double compute_tracking_error1(double pivot_spindle, double pivot_stylus, double radius)
-{
-    auto d = std::sqrt(radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus);
-    return 360.0 * std::asin(d / radius) / (2.0 * std::numbers::pi);
-}
-
 inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
 {
     auto d = radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus;
@@ -64,12 +52,13 @@ struct geometry_t
     double pivot_spindle_;
     double pivot_stylus_;
     double offset_;
+    bool modified_;
 };
 
-constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0 };
-constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0 };
-constexpr geometry_t SME { "SME", 232.32, 215.35, 23.204 };
-constexpr geometry_t SME12 { "SME12", 308.19, 295.60, 17.278 };
+constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0, false };
+constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0, false };
+constexpr geometry_t SME { "SME", 215.35, 232.32, 23.204, false };
+constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, false };
 
 struct geometry_data_t
 {
@@ -100,9 +89,36 @@ void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geom
 	ImGui::SetWindowPos(ImVec2(2, 2));
 	ImGui::SetNextWindowPos(ImVec2(0.0F, 0.0F));
 	ImGui::SetNextWindowSize(ImVec2(0.0F, 0.0F));
-	ImGui::Text("Parameters for %s geometry", g[current_geometry].name_);
+    if (ImGui::BeginTabBar("MyTabBar", ImGuiTabBarFlags_None))
+    {
+        if (ImGui::BeginTabItem("Option 1"))
+        {
+            current_geometry = 0;
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Option 2"))
+        {
+            current_geometry = 1;
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
 
+	ImGui::Text("Parameters");
     bool modded = false;
+    if (ImGui::BeginCombo("Load from...", 0, ImGuiComboFlags_NoPreview))
+    {
+        for (int n = 2; n < g.size(); n++)
+        {
+            if (ImGui::Selectable(g[n].name_))
+            {
+                g[current_geometry] = g[n];
+                modded = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+
     double tmp = g[current_geometry].pivot_spindle_;
     if(ImGui::InputDouble("Pivot - Spindle", &tmp, 0.1, 0.5, "%.2f"))
     {
@@ -147,7 +163,7 @@ int main()
 {
 	std::array<geometry_t, 6> geometries{ rega, linn, rega, linn, SME, SME12};
 	std::array<geometry_data_t, 6> geometries_data;
-	size_t current_geometry = 1;
+    size_t current_geometry = 0;
 
     for(size_t i = 0; i < 6; ++i)
         recompute(geometries[i], geometries_data[i]);
