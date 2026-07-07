@@ -12,11 +12,12 @@
 constexpr double inner_min  = 54.0;
 constexpr double outer_max = 150.0;
 constexpr double scan_increment = 0.01;
+constexpr size_t step_count = (outer_max - inner_min) / scan_increment;
 constexpr double rpm = 100.0 / 3;
 constexpr double pk_vel = 100.0; // mm/s
 // radius and velocity at rpm for interesting region
-std::vector<double> x_axis;         // mm
-std::vector<double> x_axis_velocity;// mm/s
+std::array<double, step_count> x_axis;         // mm
+std::array<double, step_count> x_axis_velocity;// mm/s
 
 // assumes values cross 0, good assumption for this application.
 //
@@ -76,11 +77,14 @@ constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, false };
 
 struct geometry_data_t
 {
-    std::vector<double> tracking_error_;
-    std::vector<double> tracking_distortion_;
-    std::vector<double> skating_force_;
+    std::array<double, step_count> tracking_error_;
+    std::array<double, step_count> tracking_distortion_;
+    std::array<double, step_count> skating_force_;
     std::vector<double> zeroes_;
 };
+
+std::array<geometry_t, 6> geometries{ rega, linn, rega, linn, SME, SME12 };
+std::array<geometry_data_t, 6> geometries_data;
 
 inline double from_degrees(double d)
 {
@@ -99,8 +103,6 @@ inline void update_offset_rad_cache(geometry_t& g)
 
 inline void recompute(geometry_t const& g, geometry_data_t& data)
 {
-    data.tracking_error_.resize(size_t((outer_max - inner_min) / scan_increment));
-    data.tracking_distortion_.resize(size_t((outer_max - inner_min) / scan_increment));
     double rad = inner_min;
     for(auto i = 0; i < data.tracking_error_.size(); ++i)
     {
@@ -200,21 +202,17 @@ void draw(std::array<geometry_t, 6>& g, size_t current_geometry, std::array<geom
 
 int main()
 {
-	std::array<geometry_t, 6> geometries{ rega, linn, rega, linn, SME, SME12};
-	std::array<geometry_data_t, 6> geometries_data;
     size_t current_geometry = 0;
     auto x = inner_min;
-    // mm and cm/s ? 
+
+    // mm and mm/s, make these constexpr?
     std::ranges::generate(x_axis, [&](){ auto xr = x; x += scan_increment; return xr;});    
     std::ranges::generate(x_axis_velocity, [&](){ auto xr = x; x += scan_increment; return xr * 2 * std::numbers::pi * rpm / 60.0;});    
-    
     for(size_t i = 0; i < 6; ++i)
     {
         update_offset_rad_cache(geometries[i]);
         recompute(geometries[i], geometries_data[i]);
     }
-    x_axis.resize(geometries_data[0].tracking_error_.size());
-    x_axis_velocity.resize(geometries_data[0].tracking_error_.size());
  
     HelloImGui::RunnerParams runnerParams;
     runnerParams.appWindowParams.windowTitle = "Tracking Error Evaluator";
