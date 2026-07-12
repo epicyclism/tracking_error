@@ -38,7 +38,15 @@ void test_b(geometry_t const& g)
     fmt::println("{} nulls at {}", g.name_, nulls);
 }
 
-double evaluate(geometry_data_t const& data)
+double evaluate_e(geometry_data_t const& data)
+{
+    double err = 0.0;
+    for(auto e : data.tracking_error_)
+        err += std::abs(e);
+    return err / double(data.tracking_error_.size());
+}
+
+double evaluate_d(geometry_data_t const& data)
 {
     double distortion = 0.0;
     for(auto d : data.tracking_distortion_)
@@ -59,11 +67,11 @@ void test_c(geometry_t const& g)
             g2.offset_rad_cache_ = g.offset_rad_cache_ + off;
             g2.pivot_stylus_ = g.pivot_stylus_ + oh;
             recompute(g2, data);
-            auto dt = evaluate(data);
+            auto dt = evaluate_e(data);
             if(dt < distortion)
             {
                 distortion = dt;
-                fmt::println("offset {} deg, overhang {} mm, avg distortion {} %", to_degrees(g2.offset_rad_cache_), g2.pivot_stylus_ - g2.pivot_spindle_, distortion);
+                fmt::println("offset {} deg, overhang {} mm, avg error {} %", to_degrees(g2.offset_rad_cache_), g2.pivot_stylus_ - g2.pivot_spindle_, distortion);
             }
         }
     }
