@@ -1,44 +1,86 @@
-#include <cmath>
-#include <numbers>
-#include <array>
+//
+// Copyright (c) 2026 Paul Ranson, paul@epicyclism.com
+//
+//
+
+#include "tracking_common.h"
 
 #include "fmt/format.h"
+#include "fmt/ranges.h"
 
-inline double compute_tracking_error0(double pivot_spindle, double pivot_stylus, double radius)
+#include "timer.h"
+
+void test_a(geometry_t const& g)
 {
-    auto d2 = radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus;
-    auto d = std::sqrt(d2);
-    fmt::println("d2 = {}, d = {}", d2, d);
-    return 360.0 * std::asin(d / radius) / (2.0 * std::numbers::pi);
+    fmt::println("Spot testing {}", g.name_);
+    for(auto r = inner_min; r < outer_max + 10.0; r += 10.0)
+    {
+        auto te = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, r) - g.offset_rad_cache_;
+        fmt::println("radius {} mm, error {} deg, distortion {} %", r, to_degrees(te), compute_tracking_distortion(te, to_velocity(r)));
+    }
 }
 
-inline double compute_tracking_error(double pivot_spindle, double pivot_stylus, double radius)
+void test_b(geometry_t const& g)
 {
-    auto d = radius * radius - pivot_spindle * pivot_spindle + pivot_stylus * pivot_stylus;
-    d /= (2.0 * pivot_stylus);
-    return 360.0 * std::asin(d / radius) / (2.0 * std::numbers::pi);
+    std::vector<double> te;
+    te.reserve(step_count);
+    {
+        timer t("computing tracking error");
+        for(auto r = inner_min; r < outer_max; r += scan_increment)
+        {
+            auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, r) - g.offset_rad_cache_;
+            te.emplace_back(e);
+        }
+    }
+    std::vector<double> nulls;
+    for(auto v = find_next_opposite_sign(te.begin(), te.end()); v != te.end(); v = find_next_opposite_sign(v,te.end()))
+        nulls.emplace_back(inner_min + double(std::distance(te.begin(), v)) * 0.01);
+    fmt::println("{} nulls at {}", g.name_, nulls);
 }
 
-struct geometry_t
+double evaluate(geometry_data_t const& data)
 {
-    char const* name_;
-    double pivot_spindle_;
-    double pivot_stylus_;
-    double offset_;
-};
+    double distortion = 0.0;
+    for(auto d : data.tracking_distortion_)
+        distortion += std::abs(d);
+    return distortion / double(data.tracking_distortion_.size());
+}
 
-constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0 };
-constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0 };
-constexpr geometry_t SME { "SME", 215.35, 232.32, 23.204 };
-constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278 };
+void test_c(geometry_t const& g)
+{
+    timer t("brute force lowest distortion");
+    geometry_data_t data;
+    geometry_t g2 = g;
+    double distortion = 100.0;
+    for(double off = from_degrees(-5.0); off <= from_degrees(5.0); off += from_degrees(0.1))
+    {
+        for(double oh = -5.0; oh < 5.0; oh += 0.1)
+        {
+            g2.offset_rad_cache_ = g.offset_rad_cache_ + off;
+            g2.pivot_stylus_ = g.pivot_stylus_ + oh;
+            recompute(g2, data);
+            auto dt = evaluate(data);
+            if(dt < distortion)
+            {
+                distortion = dt;
+                fmt::println("offset {} deg, overhang {} mm, avg distortion {} %", to_degrees(g2.offset_rad_cache_), g2.pivot_stylus_ - g2.pivot_spindle_, distortion);
+            }
+        }
+    }
+}
 
 int main()
 {
-    std::array dd {57.2, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.4};
-    auto& g = SME12;
-    for(auto d: dd)
-        fmt::println("{} at {}, error = {}", g.name_, d, compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, d) - g.offset_);
-    auto& g2 = SME;
-    for(auto d: dd)
-        fmt::println("{} at {}, error = {}", g2.name_, d, compute_tracking_error(g2.pivot_spindle_, g2.pivot_stylus_, d) - g2.offset_);
+    test_a(SME12);
+    test_a(SME);
+    test_a(rega);
+    test_a(linn);
+
+    test_b(SME12);
+    test_b(SME);
+    test_b(rega);
+    test_b(linn);   
+
+    init_x_axis();
+    test_c(rega);
 }
