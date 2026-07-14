@@ -23,19 +23,23 @@ void test_a(geometry_t const& g)
 void test_b(geometry_t const& g)
 {
     std::vector<double> te;
+    std::vector<double> td;
     te.reserve(step_count);
+    td.reserve(step_count);
     {
-        timer t("computing tracking error");
+        timer t("computing tracking error and distortion");
         for(auto r = inner_min; r < outer_max; r += scan_increment)
         {
             auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, r) - g.offset_rad_cache_;
             te.emplace_back(e);
+            td.emplace_back(compute_tracking_distortion(std::abs(e), to_velocity(r)));
         }
     }
     std::vector<double> nulls;
     for(auto v = find_next_opposite_sign(te.begin(), te.end()); v != te.end(); v = find_next_opposite_sign(v,te.end()))
         nulls.emplace_back(inner_min + double(std::distance(te.begin(), v)) * 0.01);
     fmt::println("{} nulls at {}", g.name_, nulls);
+	fmt::println("{} max error {}, max distortion {}%", g.name_, to_degrees(*std::ranges::max_element(te)), *std::ranges::max_element(td));
 }
 
 double evaluate_e(geometry_data_t const& data)
@@ -77,6 +81,26 @@ void test_c(geometry_t const& g)
     }
 }
 
+void test_d(geometry_t const& g)
+{
+    timer t("brute force lowest distortion, overhang only");
+    geometry_data_t data;
+    geometry_t g2 = g;
+    double distortion = 100.0;
+        for (double oh = -10.0; oh < 10.0; oh += 0.1)
+        {
+            g2.pivot_stylus_ = g.pivot_stylus_ + oh;
+            recompute(g2, data);
+            auto dt = evaluate_e(data);
+            if (dt < distortion)
+            {
+                distortion = dt;
+                fmt::println("offset {} deg, overhang {} mm, avg error {} %", to_degrees(g2.offset_rad_cache_), g2.pivot_stylus_ - g2.pivot_spindle_, distortion);
+            }
+        }
+}
+
+
 int main()
 {
     test_a(SME12);
@@ -90,5 +114,9 @@ int main()
     test_b(linn);   
 
     init_x_axis();
-    test_c(rega);
+//    test_c(rega);
+
+    constexpr geometry_t under{ "under", 215.0, 206.4, 0.0, from_degrees(0.0), false };
+    test_b(under);
+    test_d(under);
 }

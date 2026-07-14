@@ -9,8 +9,10 @@
 #include <cmath>
 #include <numbers>
 
-constexpr double inner_min  = 54.0;
-constexpr double outer_max = 150.0;
+//constexpr double inner_min  = 54.0;
+//constexpr double outer_max = 150.0;
+constexpr double inner_min  = 60.33;
+constexpr double outer_max = 146.05;
 constexpr double scan_increment = 0.01;
 constexpr size_t step_count = (outer_max - inner_min) / scan_increment;
 constexpr double rpm = 100.0 / 3;
