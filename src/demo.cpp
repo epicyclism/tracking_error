@@ -9,7 +9,7 @@ int main()
     runnerParams.appWindowParams.windowTitle = "ImGui Demo";
 	bool open = true;
     runnerParams.callbacks.ShowGui = [&]() {
-		ImGui::ShowDemoWindow(&open);
+        ImPlot::ShowDemoWindow();
         };
     runnerParams.imGuiWindowParams.defaultImGuiWindowType =
         HelloImGui::DefaultImGuiWindowType::ProvideFullScreenWindow;
