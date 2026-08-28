@@ -9,14 +9,17 @@
 #include <cmath>
 #include <numbers>
 
-//constexpr double inner_min  = 54.0;
-//constexpr double outer_max = 150.0;
-constexpr double inner_min  = 60.33;
-constexpr double outer_max = 146.05;
+constexpr double inner_min  = 50.0;
+constexpr double outer_max = 150.0;
+constexpr double inner_min_std  = 60.33;
+constexpr double outer_max_std = 146.05;
 constexpr double scan_increment = 0.01;
 constexpr size_t step_count = (outer_max - inner_min) / scan_increment;
 constexpr double rpm = 100.0 / 3;
 constexpr double pk_vel = 100.0; // mm/s
+// AI made the comment and produced the value, but I have no idea if it is correct.  It seems reasonable.
+constexpr double coeff_friction = 0.2; // typical for LP stylus
+
 // radius and velocity at rpm for interesting region
 std::array<double, step_count> x_axis;         // mm
 std::array<double, step_count> x_axis_velocity;// mm/s
@@ -88,6 +91,19 @@ inline double compute_tracking_distortion( double te, double gs)
     return 100.0 * pk_vel * std::tan(std::abs(te)) / gs;
 }
 
+// te tracking error in radians
+// hs headshell offset mm
+// sp stylus pivot mm
+// gs groove speed mm/s
+inline double compute_skating_force(double te, double hs, double sp, double gs)
+{
+    // the drag down the cantilever,
+	auto f = coeff_friction * gs * std::cos(te); // the force 
+    // the moment reacted at the pivot
+    auto m = std::sin(hs + te) * sp * f;
+    return f;
+}
+
 struct geometry_t
 {
     char const* name_;
@@ -95,13 +111,16 @@ struct geometry_t
     double pivot_stylus_;
     double offset_;
     double offset_rad_cache_;
-    bool modified_;
+    bool display_;
 };
 
-constexpr geometry_t rega{ "Rega", 222.0, 237.0, 22.0, from_degrees(22.0), false };
-constexpr geometry_t linn{ "Linn", 211.0, 229.0, 24.0, from_degrees(24.0), false };
-constexpr geometry_t SME { "SME", 215.35, 232.32, 23.204, from_degrees(23.204), false };
-constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, from_degrees(17.278), false };
+constexpr geometry_t rega  { "Rega", 222.0, 237.0, 22.0, from_degrees(22.0), true };
+constexpr geometry_t linn  { "Linn", 211.0, 229.0, 24.0, from_degrees(24.0), true };
+constexpr geometry_t SME   { "SME", 215.35, 232.32, 23.204, from_degrees(23.204), true };
+constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, from_degrees(17.278), true };
+constexpr geometry_t zero  { "Zero", 200.0, 180.0, 0.0, 0.0, true };
+
+constexpr std::array std_geometries{ rega, linn, SME, SME12, zero };
 
 struct geometry_data_t
 {
@@ -123,20 +142,14 @@ inline void recompute(geometry_t const& g, geometry_data_t& data)
     {
         auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad);
         e -= g.offset_rad_cache_;
-        auto d = compute_tracking_distortion(e, x_axis_velocity[i]);
+        auto d = compute_tracking_distortion(std::abs(e), x_axis_velocity[i]);
+        auto f = compute_skating_force(e, g.offset_rad_cache_, g.pivot_stylus_, x_axis_velocity[i]);
         data.tracking_error_[i] = to_degrees(e);
         data.tracking_distortion_[i] = d;
+		data.skating_force_[i] = f;
+		rad += scan_increment;
     }
     data.zeroes_.clear();
     for(auto v = find_next_opposite_sign(data.tracking_error_.begin(), data.tracking_error_.end()); v != data.tracking_error_.end(); v = find_next_opposite_sign(v, data.tracking_error_.end()))
         data.zeroes_.emplace_back(inner_min + double(std::distance(data.tracking_error_.begin(), v)) * 0.01);
-}
-
-inline void init_geometries(auto& geometries, auto& geometries_data)
-{
-    for(size_t i = 0; i < geometries.size(); ++i)
-    {
-        update_offset_rad_cache(geometries[i]);
-        recompute(geometries[i], geometries_data[i]);
-    }
 }
