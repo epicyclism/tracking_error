@@ -3,6 +3,8 @@
 //
 //
 
+#include <algorithm>
+
 #include "tracking_common.h"
 
 #include "fmt/format.h"
@@ -87,11 +89,11 @@ void test_d(geometry_t const& g)
     geometry_data_t data;
     geometry_t g2 = g;
     double distortion = 100.0;
-        for (double oh = -10.0; oh < 10.0; oh += 0.1)
+        for (double oh = -15.0; oh < 15.0; oh += 0.1)
         {
             g2.pivot_stylus_ = g.pivot_stylus_ + oh;
             recompute(g2, data);
-            auto dt = evaluate_e(data);
+            auto dt = evaluate_d(data);
             if (dt < distortion)
             {
                 distortion = dt;
@@ -103,10 +105,14 @@ void test_d(geometry_t const& g)
 
 int main()
 {
+//    constexpr geometry_t under{ "under", 215.0, 206.4, 0.0, from_degrees(0.0), false };
+    constexpr geometry_t under{ "under", 215.0, 206.40, 0.0, from_degrees(0.0), false };
+
     test_a(SME12);
     test_a(SME);
     test_a(rega);
     test_a(linn);
+    test_a(under);
 
     test_b(SME12);
     test_b(SME);
@@ -116,7 +122,6 @@ int main()
     init_x_axis();
 //    test_c(rega);
 
-    constexpr geometry_t under{ "under", 215.0, 206.4, 0.0, from_degrees(0.0), false };
-    test_b(under);
+     test_b(under);
     test_d(under);
 }
