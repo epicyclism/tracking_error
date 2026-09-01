@@ -4,6 +4,7 @@
 //
 
 #include <algorithm>
+#include <numeric>
 
 #include "tracking_common.h"
 
@@ -102,26 +103,44 @@ void test_d(geometry_t const& g)
         }
 }
 
+constexpr double centre = 140.0;
+constexpr double plusminus = 2.5;
+
+void test_plus(geometry_t const& g, int additional_distance)
+{
+	geometry_data_t data;
+	geometry_t g2 = g;
+	auto b = data.tracking_distortion_.begin() + (centre - plusminus - inner_min) / scan_increment;
+	auto e = b + (2 * plusminus) / scan_increment;
+	recompute(g2, data);
+	auto avg1 = std::accumulate(b, e, 0.0) / ((2 * plusminus) / scan_increment);
+	g2.pivot_stylus_ += additional_distance;
+	recompute(g2, data);
+	auto avg2 = std::accumulate(b, e, 0.0) / ((2 * plusminus) / scan_increment);
+	fmt::println("Avg distortion base: {} %", avg1);
+	fmt::println("Avg distortion with additional distance: {} %", avg2);
+}
 
 int main()
 {
 //    constexpr geometry_t under{ "under", 215.0, 206.4, 0.0, from_degrees(0.0), false };
     constexpr geometry_t under{ "under", 215.0, 206.40, 0.0, from_degrees(0.0), false };
 
-    test_a(SME12);
-    test_a(SME);
-    test_a(rega);
-    test_a(linn);
-    test_a(under);
+//    test_a(SME12);
+//    test_a(SME);
+//    test_a(rega);
+//    test_a(linn);
+//    test_a(under);
 
-    test_b(SME12);
-    test_b(SME);
-    test_b(rega);
-    test_b(linn);   
+//    test_b(SME12);
+//    test_b(SME);
+//    test_b(rega);
+//    test_b(linn);   
 
     init_x_axis();
 //    test_c(rega);
 
-     test_b(under);
-    test_d(under);
+//     test_b(under);
+//    test_d(under);
+    test_plus(rega, 7);
 }
