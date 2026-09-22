@@ -142,5 +142,5 @@ int main()
 
 //     test_b(under);
 //    test_d(under);
-    test_plus(rega, 7);
+    test_plus(rega, 5);
 }
