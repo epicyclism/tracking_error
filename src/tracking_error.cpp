@@ -3,10 +3,16 @@
 //
 //
 
+#include <fstream>
 #include <string>
+
+#include "fmt/core.h"
+#include <fmt/ostream.h>
 
 #include "hello_imgui/hello_imgui.h"
 #include "hello_imgui/icons_font_awesome_4.h"
+#include "misc/cpp/imgui_stdlib.h"
+#include "portable-file-dialogs.h"
 
 #include "implot.h"
 
@@ -16,14 +22,73 @@ enum graph_type_t
 {
     graph_type_tracking_error,
     graph_type_tracking_distortion,
-    graph_type_skating_force
+    graph_type_skating_force,
+    graph_type_exportdata
 };
 
 struct uistate_t
 {
     int current_custom_geometry;
     graph_type_t graph_type;
+    std::string  fn_;
 };
+
+void export_data(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
+{
+	auto [ww, wh] = ImGui::GetWindowSize();
+	auto ww3 = ww / 3;
+	auto io{ ImGui::GetIO() };
+	if (ImGui::Button("Export Data"))
+	{
+		auto path = pfd::save_file("Export Data", uistate.fn_, { "DAT Files", "*.dat", "All Files", "*" }, pfd::opt::force_overwrite).result();
+        if (!path.empty())
+        {
+            uistate.fn_ = path[0];
+            std::ofstream ofs(uistate.fn_);
+            fmt::println(ofs, "# Tracking Error Data Export");
+            for (int i = 0; i < 2; ++i)
+            {
+                fmt::println(ofs, "# Geometry {}: {}", i, gp[i].name_);
+                fmt::println(ofs, "#   Pivot - Spindle: {}", gp[i].pivot_spindle_);
+                fmt::println(ofs, "#   Pivot - Stylus: {}", gp[i].pivot_stylus_);
+                fmt::println(ofs, "#   Headshell Offset: {}", gp[i].offset_);
+            }
+            for (int i = 0; i < 2; ++i)
+            {
+                auto r = gp[i].inner_radius_;
+                fmt::println(ofs, "#   Tracking error for {}", gp[i].name_);
+                for (auto e : datap[i].tracking_error_)
+                {
+                    fmt::println(ofs, "{} {}", r, e);
+                    r += scan_increment;
+                }
+                fmt::print(ofs, "\n\n");
+            }
+            for (int i = 0; i < 2; ++i)
+            {
+                auto r = gp[i].inner_radius_;
+                fmt::println(ofs, "#   Tracking distortion for {}", gp[i].name_);
+                for (auto e : datap[i].tracking_distortion_)
+                {
+                    fmt::println(ofs, "{} {}", r, e);
+                    r += scan_increment;
+                }
+                fmt::print(ofs, "\n\n");
+            }
+            for (int i = 0; i < 2; ++i)
+            {
+                auto r = gp[i].inner_radius_;
+                fmt::println(ofs, "#   skating force for {}", gp[i].name_);
+                for (auto e : datap[i].skating_force_)
+                {
+                    fmt::println(ofs, "{} {}", r, e);
+                    r += scan_increment;
+                }
+                fmt::print(ofs, "\n\n");
+            }
+        }
+	}
+}
 
 void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
 {
@@ -60,7 +125,11 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
         {
             if (ImGui::Selectable(std_geometries[n].name_))
             {
-                g = std_geometries[n];
+				g.pivot_spindle_ = std_geometries[n].pivot_spindle_;
+				g.pivot_stylus_ = std_geometries[n].pivot_stylus_;
+				g.offset_ = std_geometries[n].offset_;
+				g.inner_radius_ = std_geometries[n].inner_radius_;
+				g.outer_radius_ = std_geometries[n].outer_radius_;
                 modded = true;
             }
         }
@@ -149,6 +218,11 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
             uistate.graph_type = graph_type_skating_force;
             ImGui::EndTabItem();
         }
+		if (ImGui::BeginTabItem("Export Data"))
+		{
+			uistate.graph_type = graph_type_exportdata;
+			ImGui::EndTabItem();
+		}
         ImGui::EndTabBar();
     }
     switch (uistate.graph_type)
@@ -185,7 +259,15 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
                 ImPlot::PlotLine("Skating force", x_axis.data(), datap[1].skating_force_.data(), static_cast<int>(datap[1].skating_force_.size()));
             ImPlot::EndPlot();
         }
-        break;  
+        break;
+    case graph_type_exportdata:
+        ImGui::Separator();
+		if (ImGui::Button("Export"))
+		{
+			export_data(uistate, gp, datap);
+		}
+        ImGui::Separator();
+        break;
     }
     ImGui::End();
 }

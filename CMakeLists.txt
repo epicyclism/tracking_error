@@ -44,6 +44,17 @@ FetchContent_Declare( ctre
 FetchContent_MakeAvailable(ctre)
 endif()
 
+if(FALSE)
+cmake_policy(PUSH)
+cmake_policy(VERSION 3.5)
+FetchContent_Declare( pfd 
+    GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs
+    GIT_TAG origin/main
+    )
+FetchContent_MakeAvailable(pfd)
+cmake_policy(POP)
+endif()
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows" OR ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     message(STATUS "Fetching hello_imgui")
     if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")

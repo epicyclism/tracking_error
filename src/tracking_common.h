@@ -17,6 +17,7 @@ constexpr double scan_increment = 0.01;
 constexpr size_t step_count = (outer_max - inner_min) / scan_increment;
 constexpr double rpm = 100.0 / 3;
 constexpr double pk_vel = 100.0; // mm/s
+//constexpr double pk_vel = 35.0; // mm/s
 // AI made the comment and produced the value, but I have no idea if it is correct.  It seems reasonable.
 constexpr double coeff_friction = 0.2; // typical for LP stylus
 
@@ -101,7 +102,7 @@ inline double compute_skating_force(double te, double hs, double sp, double gs)
 	auto f = coeff_friction * gs * std::cos(te); // the force 
     // the moment reacted at the pivot
     auto m = std::sin(hs + te) * sp * f;
-    return f;
+    return m;
 }
 
 struct geometry_t
@@ -120,7 +121,7 @@ constexpr geometry_t rega  { "Rega", 222.0, 237.0, 22.0, from_degrees(22.0), inn
 constexpr geometry_t linn  { "Linn", 211.0, 229.0, 24.0, from_degrees(24.0), inner_min_std, outer_max_std, true };
 constexpr geometry_t SME   { "SME", 215.35, 232.32, 23.204, from_degrees(23.204), inner_min_std, outer_max_std, true };
 constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, from_degrees(17.278), inner_min_std, outer_max_std, true };
-constexpr geometry_t zero  { "Zero Offset", 222.0, 180.0, 0.0, 0.0, inner_min_std, outer_max_std, true };
+constexpr geometry_t zero  { "Zero Offset", 259.0, 252.0, 0.0, 0.0, inner_min_std, outer_max_std, true };
 
 constexpr std::array std_geometries{ rega, linn, SME, SME12, zero };
 
