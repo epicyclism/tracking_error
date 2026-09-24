@@ -110,8 +110,8 @@ void test_plus(geometry_t const& g, int additional_distance)
 {
 	geometry_data_t data;
 	geometry_t g2 = g;
-	auto b = data.tracking_distortion_.begin() + (centre - plusminus - inner_min) / scan_increment;
-	auto e = b + (2 * plusminus) / scan_increment;
+	auto b = data.tracking_distortion_.begin() + std::size_t((centre - plusminus - inner_min) / scan_increment);
+	auto e = b + std::size_t((2 * plusminus) / scan_increment);
 	recompute(g2, data);
 	auto avg1 = std::accumulate(b, e, 0.0) / ((2 * plusminus) / scan_increment);
 	g2.pivot_stylus_ += additional_distance;

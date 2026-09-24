@@ -111,14 +111,16 @@ struct geometry_t
     double pivot_stylus_;
     double offset_;
     double offset_rad_cache_;
+    double inner_radius_;
+    double outer_radius_;
     bool display_;
 };
 
-constexpr geometry_t rega  { "Rega", 222.0, 237.0, 22.0, from_degrees(22.0), true };
-constexpr geometry_t linn  { "Linn", 211.0, 229.0, 24.0, from_degrees(24.0), true };
-constexpr geometry_t SME   { "SME", 215.35, 232.32, 23.204, from_degrees(23.204), true };
-constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, from_degrees(17.278), true };
-constexpr geometry_t zero  { "Zero", 200.0, 180.0, 0.0, 0.0, true };
+constexpr geometry_t rega  { "Rega", 222.0, 237.0, 22.0, from_degrees(22.0), inner_min_std, outer_max_std, true };
+constexpr geometry_t linn  { "Linn", 211.0, 229.0, 24.0, from_degrees(24.0), inner_min_std, outer_max_std, true };
+constexpr geometry_t SME   { "SME", 215.35, 232.32, 23.204, from_degrees(23.204), inner_min_std, outer_max_std, true };
+constexpr geometry_t SME12 { "SME12", 295.60, 308.19, 17.278, from_degrees(17.278), inner_min_std, outer_max_std, true };
+constexpr geometry_t zero  { "Zero Offset", 222.0, 180.0, 0.0, 0.0, inner_min_std, outer_max_std, true };
 
 constexpr std::array std_geometries{ rega, linn, SME, SME12, zero };
 
@@ -152,4 +154,8 @@ inline void recompute(geometry_t const& g, geometry_data_t& data)
     data.zeroes_.clear();
     for(auto v = find_next_opposite_sign(data.tracking_error_.begin(), data.tracking_error_.end()); v != data.tracking_error_.end(); v = find_next_opposite_sign(v, data.tracking_error_.end()))
         data.zeroes_.emplace_back(inner_min + double(std::distance(data.tracking_error_.begin(), v)) * 0.01);
+}
+
+inline void optimize_offset_overhang(geometry_t const& g, geometry_data_t& data)
+{
 }
