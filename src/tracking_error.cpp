@@ -169,7 +169,7 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
     ImGui::SameLine();
     if (ImGui::Button("Optimize"))
     {
-        g = optimize_geometry(g, 5.0, 5.0, 5.0);
+        g = optimize_geometry(g, 5.0, 5.0);
         update_offset_rad_cache(g);
         modded = true;
     }
@@ -178,7 +178,7 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
         recompute(g, data);
     }
     ImGui::Separator();
-        ImGui::TextUnformatted("Zeroes at ");
+    ImGui::TextUnformatted("Zeroes at ");
     if (gp[0].display_)
     {
         ImGui::Text("%s - ", gp[0].name_);
