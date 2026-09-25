@@ -157,6 +157,62 @@ inline void recompute(geometry_t const& g, geometry_data_t& data)
         data.zeroes_.emplace_back(inner_min + double(std::distance(data.tracking_error_.begin(), v)) * 0.01);
 }
 
-inline void optimize_offset_overhang(geometry_t const& g, geometry_data_t& data)
+// just recomute the distortion, used for optimization
+inline void recompute_d(geometry_t const& g, geometry_data_t& data)
 {
+    double rad = inner_min;
+    for (auto i = 0; i < data.tracking_error_.size(); ++i)
+    {
+        auto e = compute_tracking_error(g.pivot_spindle_, g.pivot_stylus_, rad);
+        e -= g.offset_rad_cache_;
+        auto d = compute_tracking_distortion(std::abs(e), x_axis_velocity[i]);
+        data.tracking_error_[i] = to_degrees(e);
+        data.tracking_distortion_[i] = d;
+        rad += scan_increment;
+    }
+}
+
+double evaluate_average_distortion(geometry_t const& g, geometry_data_t const& data)
+{
+    double distortion = 0.0;
+    size_t f = (g.inner_radius_ - inner_min) / scan_increment;
+    size_t t = (g.outer_radius_ - inner_min) / scan_increment;
+    if (f > t)
+        return 100.0;
+    for (auto ff = f; f < t; ++ff)
+    {
+        distortion += std::abs(data.tracking_distortion_[ff]);
+        ++f;
+    }
+    return distortion / double(t - f);
+}
+
+inline geometry_t optimize_geometry(geometry_t g, double pspin_plusminus, double pstylus_plusminus, double off_plusminus)
+{
+	auto g2 = g;
+    geometry_data_t data;
+    double distortion = 100.0;
+	for (auto sp = g.pivot_spindle_ - pspin_plusminus; sp <= g.pivot_spindle_ + pspin_plusminus; sp += 0.1)
+	{
+		for (auto oh = g.pivot_stylus_ - pstylus_plusminus; oh <= g.pivot_stylus_ + pstylus_plusminus; oh += 0.1)
+		{
+			for (auto of = g.offset_ - off_plusminus; of <= g.offset_ + off_plusminus; of += 0.1)
+			{
+				g.pivot_stylus_ = sp;
+				g.pivot_stylus_ = oh;
+				g.offset_ = of;
+				update_offset_rad_cache(g);
+				recompute_d(g, data);
+				auto dt = evaluate_average_distortion (g, data);
+				if (dt < distortion)
+				{
+					distortion = dt;
+					g2.pivot_spindle_ = sp;
+					g2.pivot_stylus_ = oh;
+					g2.offset_ = of;
+				}
+			}
+		}
+	}
+    return g2;
 }

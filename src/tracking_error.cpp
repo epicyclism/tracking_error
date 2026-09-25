@@ -23,7 +23,6 @@ enum graph_type_t
     graph_type_tracking_error,
     graph_type_tracking_distortion,
     graph_type_skating_force,
-    graph_type_exportdata
 };
 
 struct uistate_t
@@ -35,59 +34,56 @@ struct uistate_t
 
 void export_data(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
 {
-	auto [ww, wh] = ImGui::GetWindowSize();
-	auto ww3 = ww / 3;
-	auto io{ ImGui::GetIO() };
-	if (ImGui::Button("Export Data"))
+	auto path = pfd::save_file("Export Data", uistate.fn_, { "DAT Files", "*.dat", "All Files", "*" }, pfd::opt::force_overwrite).result();
+    if (path.empty())
+        return;
+    uistate.fn_ = path;
+    std::ofstream ofs(uistate.fn_);
+    if(!ofs)
 	{
-		auto path = pfd::save_file("Export Data", uistate.fn_, { "DAT Files", "*.dat", "All Files", "*" }, pfd::opt::force_overwrite).result();
-        if (!path.empty())
-        {
-            uistate.fn_ = path[0];
-            std::ofstream ofs(uistate.fn_);
-            fmt::println(ofs, "# Tracking Error Data Export");
-            for (int i = 0; i < 2; ++i)
-            {
-                fmt::println(ofs, "# Geometry {}: {}", i, gp[i].name_);
-                fmt::println(ofs, "#   Pivot - Spindle: {}", gp[i].pivot_spindle_);
-                fmt::println(ofs, "#   Pivot - Stylus: {}", gp[i].pivot_stylus_);
-                fmt::println(ofs, "#   Headshell Offset: {}", gp[i].offset_);
-            }
-            for (int i = 0; i < 2; ++i)
-            {
-                auto r = gp[i].inner_radius_;
-                fmt::println(ofs, "#   Tracking error for {}", gp[i].name_);
-                for (auto e : datap[i].tracking_error_)
-                {
-                    fmt::println(ofs, "{} {}", r, e);
-                    r += scan_increment;
-                }
-                fmt::print(ofs, "\n\n");
-            }
-            for (int i = 0; i < 2; ++i)
-            {
-                auto r = gp[i].inner_radius_;
-                fmt::println(ofs, "#   Tracking distortion for {}", gp[i].name_);
-                for (auto e : datap[i].tracking_distortion_)
-                {
-                    fmt::println(ofs, "{} {}", r, e);
-                    r += scan_increment;
-                }
-                fmt::print(ofs, "\n\n");
-            }
-            for (int i = 0; i < 2; ++i)
-            {
-                auto r = gp[i].inner_radius_;
-                fmt::println(ofs, "#   skating force for {}", gp[i].name_);
-                for (auto e : datap[i].skating_force_)
-                {
-                    fmt::println(ofs, "{} {}", r, e);
-                    r += scan_increment;
-                }
-                fmt::print(ofs, "\n\n");
-            }
-        }
+		pfd::message("Error", "Could not open file for writing", pfd::choice::ok, pfd::icon::error);
+		return;
 	}
+    fmt::println(ofs, "# Tracking Error Data Export");
+    for (int i = 0; i < 2; ++i)
+    {
+        fmt::println(ofs, "# Geometry {}: {}", i, gp[i].name_);
+        fmt::println(ofs, "#   Pivot - Spindle: {}", gp[i].pivot_spindle_);
+        fmt::println(ofs, "#   Pivot - Stylus: {}", gp[i].pivot_stylus_);
+        fmt::println(ofs, "#   Headshell Offset: {}", gp[i].offset_);
+    }
+	fmt::println(ofs, "# plotting reminder, starting off point...");
+    fmt::println(ofs, "# set style data lines");
+    fmt::println(ofs, "# to plot tracking error");
+    fmt::println(ofs, "# plot <filename> index 0:1");
+    fmt::println(ofs, "# to plot tracking distortion");
+    fmt::println(ofs, "# plot <filename> index 1:2");
+    fmt::println(ofs, "# to plot skating torque");
+    fmt::println(ofs, "# plot <filename> index 3:4");
+	fmt::println(ofs, "#   Columns: radius (mm), geometry 1, geometry 2");
+    auto r = gp[0].inner_radius_;
+    fmt::println(ofs, "#   Tracking error");
+	for (auto p = 0; p < datap[0].tracking_error_.size(); ++p)
+	{
+		fmt::println(ofs, "{} {} {}", r, datap[0].tracking_error_[p], datap[1].tracking_error_[p]);
+		r += scan_increment;
+	}
+    fmt::print(ofs, "\n\n");
+    r = gp[0].inner_radius_;
+    fmt::println(ofs, "#   Tracking distortion");
+    for (auto p = 0; p < datap[0].tracking_distortion_.size(); ++p)
+    {
+        fmt::println(ofs, "{} {} {}", r, datap[0].tracking_distortion_[p], datap[1].tracking_distortion_[p]);
+        r += scan_increment;
+    }
+    fmt::print(ofs, "\n\n");
+    r = gp[0].inner_radius_;
+    fmt::println(ofs, "#   Skating torque");
+    for (auto p = 0; p < datap[0].skating_force_.size(); ++p)
+    {
+        fmt::println(ofs, "{} {} {}", r, datap[0].skating_force_[p], datap[1].skating_force_[p]);
+        r += scan_increment;
+    }
 }
 
 void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
@@ -173,8 +169,9 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
     ImGui::SameLine();
     if (ImGui::Button("Optimize"))
     {
-        optimize_offset_overhang(g, data);
+        g = optimize_geometry(g, 5.0, 5.0, 5.0);
         update_offset_rad_cache(g);
+        modded = true;
     }
     if (modded)
     {
@@ -218,13 +215,13 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
             uistate.graph_type = graph_type_skating_force;
             ImGui::EndTabItem();
         }
-		if (ImGui::BeginTabItem("Export Data"))
-		{
-			uistate.graph_type = graph_type_exportdata;
-			ImGui::EndTabItem();
-		}
         ImGui::EndTabBar();
     }
+    ImGui::SameLine();
+	if (ImGui::Button("Export Data"))
+	{
+		export_data(uistate, gp, datap);
+	}
     switch (uistate.graph_type)
     {
     case graph_type_tracking_error:
@@ -260,14 +257,6 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
             ImPlot::EndPlot();
         }
         break;
-    case graph_type_exportdata:
-        ImGui::Separator();
-		if (ImGui::Button("Export"))
-		{
-			export_data(uistate, gp, datap);
-		}
-        ImGui::Separator();
-        break;
     }
     ImGui::End();
 }
@@ -284,6 +273,7 @@ int main()
 	uistate_t uistate;
 	uistate.current_custom_geometry = 0;
     uistate.graph_type = graph_type_tracking_error;
+	uistate.fn_ = "tracking_error_export.dat";
 
     HelloImGui::RunnerParams runnerParams;
     runnerParams.appWindowParams.windowTitle = "Tracking Error Evaluator";
