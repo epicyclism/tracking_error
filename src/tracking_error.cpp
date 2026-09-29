@@ -126,6 +126,7 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
 				g.offset_ = std_geometries[n].offset_;
 				g.inner_radius_ = std_geometries[n].inner_radius_;
 				g.outer_radius_ = std_geometries[n].outer_radius_;
+                update_offset_rad_cache(g);
                 modded = true;
             }
         }

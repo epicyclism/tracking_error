@@ -174,11 +174,11 @@ inline void recompute_d(geometry_t const& g, geometry_data_t& data)
 
 double evaluate_average_distortion(geometry_t const& g, geometry_data_t const& data)
 {
-    double distortion = 100.0;
+    double distortion = 0.0;
     size_t f = (g.inner_radius_ - inner_min) / scan_increment;
     size_t t = (g.outer_radius_ - inner_min) / scan_increment;
 
-    for (auto ff = f; f < t; ++ff)
+    for (auto ff = f; ff < t; ++ff)
     {
         distortion += std::abs(data.tracking_distortion_[ff]);
     }
