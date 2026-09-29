@@ -185,30 +185,37 @@ double evaluate_average_distortion(geometry_t const& g, geometry_data_t const& d
     return distortion / double(t - f);
 }
 
-inline geometry_t optimize_geometry(geometry_t g, double pstylus_plusminus, double off_plusminus)
+inline geometry_t optimize_geometry(geometry_t g, double pspindle_plusminus, double pstylus_plusminus, double off_plusminus)
 {
 	auto g2 = g;
     geometry_data_t data;
     double distortion = 100.0;
+    double osb = g2.pivot_spindle_;
     double ohb = g2.pivot_stylus_;
     double ofb = g2.offset_;
-    for (auto oh = g2.pivot_stylus_ - pstylus_plusminus; oh <= g2.pivot_stylus_ + pstylus_plusminus; oh += 0.1)
+    for (auto os = g2.pivot_spindle_ - pspindle_plusminus; os <= g2.pivot_spindle_ + pspindle_plusminus; os += 0.1)
     {
-        g.pivot_stylus_ = oh;
-        for (auto of = g2.offset_ - off_plusminus; of <= g2.offset_ + off_plusminus; of += 0.1)
+        g.pivot_spindle_ = os;
+        for (auto oh = g2.pivot_stylus_ - pstylus_plusminus; oh <= g2.pivot_stylus_ + pstylus_plusminus; oh += 0.1)
         {
-            g.offset_ = of;
-            update_offset_rad_cache(g);
-            recompute_d(g, data);
-            auto dt = evaluate_average_distortion (g, data);
-            if (dt < distortion)
+            g.pivot_stylus_ = oh;
+            for (auto of = g2.offset_ - off_plusminus; of <= g2.offset_ + off_plusminus; of += 0.1)
             {
-                distortion = dt;
-                ohb = oh;
-                ofb = of;
+                g.offset_ = of;
+                update_offset_rad_cache(g);
+                recompute_d(g, data);
+                auto dt = evaluate_average_distortion (g, data);
+                if (dt < distortion)
+                {
+                    distortion = dt;
+                    osb = os;
+                    ohb = oh;
+                    ofb = of;
+                }
             }
         }
     }
+    g2.pivot_spindle_ = osb;
     g2.pivot_stylus_ = ohb;
     g2.offset_ = ofb;
     return g2;

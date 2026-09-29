@@ -170,7 +170,7 @@ void draw(uistate_t& uistate, geometry_t* gp, geometry_data_t* datap)
     ImGui::SameLine();
     if (ImGui::Button("Optimize"))
     {
-        g = optimize_geometry(g, 5.0, 5.0);
+        g = optimize_geometry(g, 0.0, 5.0, 5.0);
         update_offset_rad_cache(g);
         modded = true;
     }
